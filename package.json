@@ -18,5 +18,12 @@
     "discord.js": "^14.25.1",
     "dotenv": "^17.2.3",
     "node-cron": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.15.29",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
   }
 }
