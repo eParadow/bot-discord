@@ -4,11 +4,24 @@ import {
   Collection,
   Events,
   ChatInputCommandInteraction,
+  Partials,
+  REST,
+  Routes,
 } from 'discord.js';
 import { config, validateConfig } from './config';
 import { getDatabase, closeDatabase } from './database/connection';
 import { loadAllReminders, stopAllReminders } from './scheduler/cron';
+import {
+  handlePresenceUpdate,
+  handleVoiceStateUpdate,
+  startActivityTracker,
+  stopActivityTracker,
+} from './tracker/activity-tracker';
 import * as reminderCommand from './commands/reminder';
+import * as activityAlertCommand from './commands/activity-alert';
+
+// All commands
+const commands = [reminderCommand, activityAlertCommand];
 
 // Extend Client type to include commands collection
 declare module 'discord.js' {
@@ -28,25 +41,47 @@ async function main(): Promise<void> {
   console.log('📦 Initialisation de la base de données...');
   getDatabase();
 
-  // Create Discord client
+  // Create Discord client with necessary intents for activity tracking
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.GuildPresences,      // For tracking game activity
+      GatewayIntentBits.GuildVoiceStates,    // For tracking voice channel activity
+      GatewayIntentBits.GuildMembers,        // For fetching member info
     ],
+    partials: [Partials.GuildMember],
   });
 
   // Setup commands collection
   client.commands = new Collection();
-  client.commands.set(reminderCommand.data.name, reminderCommand);
+  for (const command of commands) {
+    client.commands.set(command.data.name, command);
+  }
 
   // Event: Bot ready
-  client.once(Events.ClientReady, (readyClient) => {
+  client.once(Events.ClientReady, async (readyClient) => {
     console.log(`✅ Connecté en tant que ${readyClient.user.tag}`);
     console.log(`📊 Présent sur ${readyClient.guilds.cache.size} serveur(s)`);
 
+    // Deploy slash commands
+    await deployCommands();
+
     // Load all scheduled reminders
     loadAllReminders(client);
+    
+    // Start activity tracker
+    startActivityTracker(client);
+  });
+
+  // Event: Presence update (game activity)
+  client.on(Events.PresenceUpdate, (oldPresence, newPresence) => {
+    handlePresenceUpdate(oldPresence, newPresence);
+  });
+
+  // Event: Voice state update (voice channel activity)
+  client.on(Events.VoiceStateUpdate, (oldState, newState) => {
+    handleVoiceStateUpdate(oldState, newState);
   });
 
   // Event: Interaction (slash commands)
@@ -80,6 +115,7 @@ async function main(): Promise<void> {
     console.log(`\n🛑 Signal ${signal} reçu, arrêt en cours...`);
     
     stopAllReminders();
+    stopActivityTracker();
     closeDatabase();
     client.destroy();
     
@@ -93,6 +129,24 @@ async function main(): Promise<void> {
   // Login to Discord
   console.log('🔌 Connexion à Discord...');
   await client.login(config.discordToken);
+}
+
+async function deployCommands(): Promise<void> {
+  const commandsData = commands.map((cmd) => cmd.data.toJSON());
+  const rest = new REST().setToken(config.discordToken);
+
+  try {
+    console.log(`🔄 Déploiement de ${commandsData.length} commande(s)...`);
+
+    const data = (await rest.put(
+      Routes.applicationCommands(config.clientId),
+      { body: commandsData }
+    )) as any[];
+
+    console.log(`✅ ${data.length} commande(s) déployée(s): ${data.map((c) => `/${c.name}`).join(', ')}`);
+  } catch (error) {
+    console.error('❌ Erreur lors du déploiement des commandes:', error);
+  }
 }
 
 main().catch((error) => {

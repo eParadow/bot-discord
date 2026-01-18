@@ -40,6 +40,29 @@ function initializeSchema(): void {
   database.exec(`
     CREATE INDEX IF NOT EXISTS idx_reminders_guild_id ON reminders(guild_id)
   `);
+
+  // Activity alerts table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS activity_alerts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      target_user_id TEXT NOT NULL,
+      alert_user_id TEXT NOT NULL,
+      alert_type TEXT NOT NULL CHECK(alert_type IN ('gaming', 'voice', 'both')),
+      duration_minutes INTEGER NOT NULL DEFAULT 60,
+      message TEXT,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_activity_alerts_guild ON activity_alerts(guild_id)
+  `);
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_activity_alerts_target ON activity_alerts(target_user_id)
+  `);
 }
 
 export function closeDatabase(): void {

@@ -1,11 +1,15 @@
 import { REST, Routes } from 'discord.js';
 import { config, validateConfig } from './config';
 import * as reminderCommand from './commands/reminder';
+import * as activityAlertCommand from './commands/activity-alert';
 
 async function deployCommands(): Promise<void> {
   validateConfig();
 
-  const commands = [reminderCommand.data.toJSON()];
+  const commands = [
+    reminderCommand.data.toJSON(),
+    activityAlertCommand.data.toJSON(),
+  ];
 
   const rest = new REST().setToken(config.discordToken);
 
