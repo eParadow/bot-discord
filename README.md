@@ -141,6 +141,65 @@ bot-discord/
 | `npm start`     | Lancer en mode production                |
 | `npm run deploy`| Déployer les commandes slash sur Discord |
 
+## Déploiement Docker
+
+### Docker Compose (local)
+
+```bash
+# Créer le fichier .env avec vos variables
+cp .env.example .env
+
+# Lancer le bot
+docker-compose up -d
+
+# Voir les logs
+docker-compose logs -f
+
+# Arrêter le bot
+docker-compose down
+```
+
+### Railway
+
+1. **Connecter votre dépôt GitHub à Railway**
+   - Aller sur [Railway](https://railway.app)
+   - Créer un nouveau projet depuis GitHub
+   - Sélectionner ce dépôt
+
+2. **Configurer les variables d'environnement**
+   
+   Dans Railway, aller dans l'onglet "Variables" et ajouter :
+   - `DISCORD_TOKEN` : Votre token de bot Discord
+   - `CLIENT_ID` : L'ID client de votre application Discord
+
+3. **Déployer les commandes slash**
+   
+   Avant le premier déploiement ou après modification des commandes, exécuter localement :
+   ```bash
+   npm run deploy
+   ```
+
+4. **Persistence des données**
+   
+   Railway utilise un système de fichiers éphémère. Pour persister la base SQLite, vous pouvez :
+   - Utiliser un volume Railway (recommandé)
+   - Migrer vers PostgreSQL (pour une meilleure scalabilité)
+
+### Build Docker manuel
+
+```bash
+# Construire l'image
+docker build -t discord-bot-rappels .
+
+# Lancer le conteneur
+docker run -d \
+  --name discord-bot \
+  -e DISCORD_TOKEN=votre_token \
+  -e CLIENT_ID=votre_client_id \
+  -v bot-data:/app/data \
+  discord-bot-rappels
+```
+
 ## Licence
 
 ISC
