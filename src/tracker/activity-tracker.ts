@@ -56,6 +56,8 @@ function getGameName(presence: Presence | null): string | null {
 export function handlePresenceUpdate(oldPresence: Presence | null, newPresence: Presence): void {
   const guildId = newPresence.guild?.id;
   const userId = newPresence.userId;
+  const username = newPresence.member?.displayName || newPresence.user?.username || userId;
+  const guildName = newPresence.guild?.name || guildId;
   
   if (!guildId) return;
   
@@ -66,20 +68,23 @@ export function handlePresenceUpdate(oldPresence: Presence | null, newPresence: 
   
   if (!wasPlaying && isPlaying) {
     // Started playing
+    const gameName = getGameName(newPresence);
     state.gamingStartedAt = Date.now();
     state.gamingAlertSent.clear();
-    console.log(`[TRACKER] ${userId} a commencé à jouer dans ${guildId}`);
+    console.log(`[TRACKER] ${username} (${userId}) a commencé à jouer${gameName ? ` à ${gameName}` : ''} dans ${guildName}`);
   } else if (wasPlaying && !isPlaying) {
     // Stopped playing
     state.gamingStartedAt = null;
     state.gamingAlertSent.clear();
-    console.log(`[TRACKER] ${userId} a arrêté de jouer dans ${guildId}`);
+    console.log(`[TRACKER] ${username} (${userId}) a arrêté de jouer dans ${guildName}`);
   }
 }
 
 export function handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceState): void {
   const guildId = newState.guild.id;
   const userId = newState.id;
+  const username = newState.member?.displayName || newState.member?.user.username || userId;
+  const guildName = newState.guild.name;
   
   const wasInVoice = oldState.channelId !== null;
   const isInVoice = newState.channelId !== null;
@@ -88,14 +93,16 @@ export function handleVoiceStateUpdate(oldState: VoiceState, newState: VoiceStat
   
   if (!wasInVoice && isInVoice) {
     // Joined voice channel
+    const channelName = newState.channel?.name || 'inconnu';
     state.voiceStartedAt = Date.now();
     state.voiceAlertSent.clear();
-    console.log(`[TRACKER] ${userId} a rejoint un vocal dans ${guildId}`);
+    console.log(`[TRACKER] ${username} (${userId}) a rejoint le vocal #${channelName} dans ${guildName}`);
   } else if (wasInVoice && !isInVoice) {
     // Left voice channel
+    const channelName = oldState.channel?.name || 'inconnu';
     state.voiceStartedAt = null;
     state.voiceAlertSent.clear();
-    console.log(`[TRACKER] ${userId} a quitté le vocal dans ${guildId}`);
+    console.log(`[TRACKER] ${username} (${userId}) a quitté le vocal #${channelName} dans ${guildName}`);
   }
 }
 
