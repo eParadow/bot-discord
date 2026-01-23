@@ -5,15 +5,20 @@ let db: Knex | null = null;
 
 export function getDatabase(): Knex {
   if (!db) {
+    // Support DATABASE_URL (Railway, Heroku, etc.) or individual parameters
+    const connection = config.databaseUrl 
+      ? config.databaseUrl 
+      : {
+          host: config.postgres.host,
+          port: config.postgres.port,
+          database: config.postgres.database,
+          user: config.postgres.user,
+          password: config.postgres.password,
+        };
+
     db = knex({
       client: 'postgresql',
-      connection: {
-        host: config.postgres.host,
-        port: config.postgres.port,
-        database: config.postgres.database,
-        user: config.postgres.user,
-        password: config.postgres.password,
-      },
+      connection,
       pool: {
         min: 2,
         max: 20,

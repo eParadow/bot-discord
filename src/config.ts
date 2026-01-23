@@ -5,6 +5,8 @@ dotenv.config();
 export const config = {
   discordToken: process.env.DISCORD_TOKEN || '',
   clientId: process.env.CLIENT_ID || '',
+  // Support for Railway and other services that provide DATABASE_URL
+  databaseUrl: process.env.DATABASE_URL,
   postgres: {
     host: process.env.POSTGRES_HOST || 'localhost',
     port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
@@ -22,7 +24,8 @@ export function validateConfig(): void {
   if (!config.clientId) {
     throw new Error('CLIENT_ID is required in environment variables');
   }
-  if (!config.postgres.password) {
-    throw new Error('POSTGRES_PASSWORD is required in environment variables');
+  // If DATABASE_URL is not provided, check individual postgres config
+  if (!config.databaseUrl && !config.postgres.password) {
+    throw new Error('Either DATABASE_URL or POSTGRES_PASSWORD is required in environment variables');
   }
 }
