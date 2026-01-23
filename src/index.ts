@@ -7,6 +7,7 @@ import {
   Partials,
   REST,
   Routes,
+  MessageFlags,
 } from 'discord.js';
 import { config, validateConfig } from './config';
 import { getDatabase, closeDatabase, initializeDatabase } from './database/connection';
@@ -104,9 +105,9 @@ async function main(): Promise<void> {
       const errorMessage = '❌ Une erreur est survenue lors de l\'exécution de cette commande.';
       
       if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({ content: errorMessage, ephemeral: true });
+        await interaction.followUp({ content: errorMessage, flags: MessageFlags.Ephemeral });
       } else {
-        await interaction.reply({ content: errorMessage, ephemeral: true });
+        await interaction.reply({ content: errorMessage, flags: MessageFlags.Ephemeral });
       }
     }
   });

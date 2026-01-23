@@ -3,6 +3,7 @@ import {
   ChatInputCommandInteraction,
   EmbedBuilder,
   PermissionFlagsBits,
+  MessageFlags,
 } from 'discord.js';
 import cron from 'node-cron';
 import {
@@ -95,7 +96,7 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
   if (!interaction.guildId) {
     await interaction.reply({
       content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -107,7 +108,7 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
         '• `0 9 * * *` - Tous les jours à 9h\n' +
         '• `0 0 * * 1` - Tous les lundis à minuit\n' +
         '• `*/30 * * * *` - Toutes les 30 minutes',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -116,7 +117,7 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
   if (targetUser.bot) {
     await interaction.reply({
       content: '❌ Vous ne pouvez pas créer un rappel pour un bot.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -145,12 +146,12 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
       .setDescription('Le rappel sera envoyé en message privé.')
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   } catch (error) {
     console.error('Error creating reminder:', error);
     await interaction.reply({
       content: '❌ Une erreur est survenue lors de la création du rappel.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -159,7 +160,7 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
   if (!interaction.guildId) {
     await interaction.reply({
       content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -169,7 +170,7 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
   if (reminders.length === 0) {
     await interaction.reply({
       content: '📭 Aucun rappel configuré sur ce serveur.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -190,14 +191,14 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
     .setFooter({ text: `${reminders.length} rappel(s)` })
     .setTimestamp();
 
-  await interaction.reply({ embeds: [embed] });
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 async function handleDelete(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.guildId) {
     await interaction.reply({
       content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -209,7 +210,7 @@ async function handleDelete(interaction: ChatInputCommandInteraction): Promise<v
   if (!reminder || reminder.guild_id !== interaction.guildId) {
     await interaction.reply({
       content: `❌ Rappel #${id} introuvable sur ce serveur.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -222,11 +223,12 @@ async function handleDelete(interaction: ChatInputCommandInteraction): Promise<v
 
     await interaction.reply({
       content: `✅ Rappel #${id} supprimé avec succès.`,
+      flags: MessageFlags.Ephemeral,
     });
   } else {
     await interaction.reply({
       content: `❌ Impossible de supprimer le rappel #${id}.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -235,7 +237,7 @@ async function handleInfo(interaction: ChatInputCommandInteraction): Promise<voi
   if (!interaction.guildId) {
     await interaction.reply({
       content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -246,7 +248,7 @@ async function handleInfo(interaction: ChatInputCommandInteraction): Promise<voi
   if (!reminder || reminder.guild_id !== interaction.guildId) {
     await interaction.reply({
       content: `❌ Rappel #${id} introuvable sur ce serveur.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -264,5 +266,5 @@ async function handleInfo(interaction: ChatInputCommandInteraction): Promise<voi
     .setDescription('Le rappel sera envoyé en message privé.')
     .setTimestamp();
 
-  await interaction.reply({ embeds: [embed] });
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }

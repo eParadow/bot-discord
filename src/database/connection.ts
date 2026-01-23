@@ -1,13 +1,13 @@
-import knex, { Knex } from 'knex';
-import { config } from '../config';
+import knex, { Knex } from "knex";
+import { config } from "../config";
 
 let db: Knex | null = null;
 
 export function getDatabase(): Knex {
   if (!db) {
     // Support DATABASE_URL (Railway, Heroku, etc.) or individual parameters
-    const connection = config.databaseUrl 
-      ? config.databaseUrl 
+    const connection = config.databaseUrl
+      ? config.databaseUrl
       : {
           host: config.postgres.host,
           port: config.postgres.port,
@@ -17,7 +17,7 @@ export function getDatabase(): Knex {
         };
 
     db = knex({
-      client: 'postgresql',
+      client: "postgresql",
       connection,
       pool: {
         min: 2,
@@ -28,8 +28,8 @@ export function getDatabase(): Knex {
     });
 
     // Handle pool errors
-    db.on('query-error', (error) => {
-      console.error('Knex query error:', error);
+    db.on("query-error", (error) => {
+      console.error("Knex query error:", error);
     });
   }
   return db;
@@ -41,19 +41,20 @@ export async function initializeDatabase(): Promise<void> {
 
 async function initializeSchema(): Promise<void> {
   const knexInstance = getDatabase();
-  
+
   try {
     // Create reminders table
-    const remindersTableExists = await knexInstance.schema.hasTable('reminders');
+    const remindersTableExists =
+      await knexInstance.schema.hasTable("reminders");
     if (!remindersTableExists) {
-      await knexInstance.schema.createTable('reminders', (table) => {
-        table.increments('id').primary();
-        table.text('guild_id').notNullable();
-        table.text('user_id').notNullable();
-        table.text('message').notNullable();
-        table.text('cron_expression').notNullable();
-        table.text('created_by').notNullable();
-        table.timestamp('created_at').defaultTo(knexInstance.fn.now());
+      await knexInstance.schema.createTable("reminders", (table) => {
+        table.increments("id").primary();
+        table.text("guild_id").notNullable();
+        table.text("user_id").notNullable();
+        table.text("message").notNullable();
+        table.text("cron_expression").notNullable();
+        table.text("created_by").notNullable();
+        table.timestamp("created_at").defaultTo(knexInstance.fn.now());
       });
 
       await knexInstance.schema.raw(`
@@ -62,18 +63,19 @@ async function initializeSchema(): Promise<void> {
     }
 
     // Create activity_alerts table
-    const activityAlertsTableExists = await knexInstance.schema.hasTable('activity_alerts');
+    const activityAlertsTableExists =
+      await knexInstance.schema.hasTable("activity_alerts");
     if (!activityAlertsTableExists) {
-      await knexInstance.schema.createTable('activity_alerts', (table) => {
-        table.increments('id').primary();
-        table.text('guild_id').notNullable();
-        table.text('target_user_id').notNullable();
-        table.text('alert_user_id').notNullable();
-        table.text('alert_type').notNullable();
-        table.integer('duration_minutes').notNullable().defaultTo(60);
-        table.text('message').nullable();
-        table.boolean('enabled').notNullable().defaultTo(true);
-        table.timestamp('created_at').defaultTo(knexInstance.fn.now());
+      await knexInstance.schema.createTable("activity_alerts", (table) => {
+        table.increments("id").primary();
+        table.text("guild_id").notNullable();
+        table.text("target_user_id").notNullable();
+        table.text("alert_user_id").notNullable();
+        table.text("alert_type").notNullable();
+        table.integer("duration_minutes").notNullable().defaultTo(60);
+        table.text("message").nullable();
+        table.boolean("enabled").notNullable().defaultTo(true);
+        table.timestamp("created_at").defaultTo(knexInstance.fn.now());
       });
 
       // Add CHECK constraint using raw SQL
@@ -92,9 +94,9 @@ async function initializeSchema(): Promise<void> {
       `);
     }
 
-    console.log('[DB] Schéma PostgreSQL initialisé avec Knex');
+    console.log("[DB] Schéma PostgreSQL initialisé avec Knex");
   } catch (error) {
-    console.error('[DB] Erreur lors de l\'initialisation du schéma:', error);
+    console.error("[DB] Erreur lors de l'initialisation du schéma:", error);
     throw error;
   }
 }

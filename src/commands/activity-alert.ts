@@ -3,6 +3,7 @@ import {
   ChatInputCommandInteraction,
   EmbedBuilder,
   PermissionFlagsBits,
+  MessageFlags,
 } from 'discord.js';
 import {
   createActivityAlert,
@@ -117,7 +118,7 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
   if (!interaction.guildId) {
     await interaction.reply({
       content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -131,7 +132,7 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
   if (targetUser.bot) {
     await interaction.reply({
       content: '❌ Vous ne pouvez pas créer une alerte pour un bot.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -166,12 +167,12 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
       )
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   } catch (error) {
     console.error('Error creating activity alert:', error);
     await interaction.reply({
       content: '❌ Une erreur est survenue lors de la création de l\'alerte.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -180,7 +181,7 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
   if (!interaction.guildId) {
     await interaction.reply({
       content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -190,7 +191,7 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
   if (alerts.length === 0) {
     await interaction.reply({
       content: '📭 Aucune alerte d\'activité configurée sur ce serveur.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -218,14 +219,14 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
     .setFooter({ text: `${alerts.length} alerte(s)` })
     .setTimestamp();
 
-  await interaction.reply({ embeds: [embed] });
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 async function handleDelete(interaction: ChatInputCommandInteraction): Promise<void> {
   if (!interaction.guildId) {
     await interaction.reply({
       content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -236,7 +237,7 @@ async function handleDelete(interaction: ChatInputCommandInteraction): Promise<v
   if (!alert || alert.guild_id !== interaction.guildId) {
     await interaction.reply({
       content: `❌ Alerte #${id} introuvable sur ce serveur.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -246,11 +247,12 @@ async function handleDelete(interaction: ChatInputCommandInteraction): Promise<v
   if (deleted) {
     await interaction.reply({
       content: `✅ Alerte #${id} supprimée avec succès.`,
+      flags: MessageFlags.Ephemeral,
     });
   } else {
     await interaction.reply({
       content: `❌ Impossible de supprimer l'alerte #${id}.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -259,7 +261,7 @@ async function handleToggle(interaction: ChatInputCommandInteraction): Promise<v
   if (!interaction.guildId) {
     await interaction.reply({
       content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -270,7 +272,7 @@ async function handleToggle(interaction: ChatInputCommandInteraction): Promise<v
   if (!alert || alert.guild_id !== interaction.guildId) {
     await interaction.reply({
       content: `❌ Alerte #${id} introuvable sur ce serveur.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -282,11 +284,12 @@ async function handleToggle(interaction: ChatInputCommandInteraction): Promise<v
     const status = newState ? '✅ activée' : '❌ désactivée';
     await interaction.reply({
       content: `Alerte #${id} ${status}.`,
+      flags: MessageFlags.Ephemeral,
     });
   } else {
     await interaction.reply({
       content: `❌ Impossible de modifier l'alerte #${id}.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -295,7 +298,7 @@ async function handleInfo(interaction: ChatInputCommandInteraction): Promise<voi
   if (!interaction.guildId) {
     await interaction.reply({
       content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -306,7 +309,7 @@ async function handleInfo(interaction: ChatInputCommandInteraction): Promise<voi
   if (!alert || alert.guild_id !== interaction.guildId) {
     await interaction.reply({
       content: `❌ Alerte #${id} introuvable sur ce serveur.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -330,5 +333,5 @@ async function handleInfo(interaction: ChatInputCommandInteraction): Promise<voi
     embed.addFields({ name: 'Message personnalisé', value: alert.message });
   }
 
-  await interaction.reply({ embeds: [embed] });
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
