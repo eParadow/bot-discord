@@ -1,101 +1,102 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
+import knex, { Knex } from 'knex';
 import { config } from '../config';
 
-let db: Database.Database | null = null;
+let db: Knex | null = null;
 
-export function getDatabase(): Database.Database {
+export function getDatabase(): Knex {
   if (!db) {
-    // Ensure the data directory exists
-    const dbDir = path.dirname(config.databasePath);
-    if (!fs.existsSync(dbDir)) {
-      fs.mkdirSync(dbDir, { recursive: true });
-    }
+    db = knex({
+      client: 'postgresql',
+      connection: {
+        host: config.postgres.host,
+        port: config.postgres.port,
+        database: config.postgres.database,
+        user: config.postgres.user,
+        password: config.postgres.password,
+      },
+      pool: {
+        min: 2,
+        max: 20,
+        idleTimeoutMillis: 30000,
+        acquireTimeoutMillis: 2000,
+      },
+    });
 
-    db = new Database(config.databasePath);
-    db.pragma('journal_mode = WAL');
-    
-    initializeSchema();
+    // Handle pool errors
+    db.on('query-error', (error) => {
+      console.error('Knex query error:', error);
+    });
   }
   return db;
 }
 
-function initializeSchema(): void {
-  const database = db!;
-  
-  // Check if reminders table exists and has old schema
-  let needsMigration = false;
-  try {
-    const tableInfo = database.prepare("PRAGMA table_info(reminders)").all() as any[];
-    const hasChannelId = tableInfo.some((col: any) => col.name === 'channel_id');
-    const hasUserId = tableInfo.some((col: any) => col.name === 'user_id');
-    
-    if (hasChannelId && !hasUserId) {
-      needsMigration = true;
-    }
-  } catch (e) {
-    // Table doesn't exist yet, will be created with new schema
-  }
-  
-  // Create table with new schema (or if it doesn't exist)
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS reminders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      guild_id TEXT NOT NULL,
-      user_id TEXT NOT NULL,
-      message TEXT NOT NULL,
-      cron_expression TEXT NOT NULL,
-      created_by TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Migration: Migrate from channel_id to user_id for existing databases
-  if (needsMigration) {
-    try {
-      // Add user_id column
-      database.exec(`ALTER TABLE reminders ADD COLUMN user_id TEXT`);
-      // Migrate data: use created_by as default user_id (the person who created the reminder)
-      database.exec(`UPDATE reminders SET user_id = created_by WHERE user_id IS NULL`);
-      console.log('[DB] Migration: channel_id → user_id effectuée');
-    } catch (e) {
-      console.error('[DB] Erreur lors de la migration:', e);
-    }
-  }
-
-  // Create index for faster guild lookups
-  database.exec(`
-    CREATE INDEX IF NOT EXISTS idx_reminders_guild_id ON reminders(guild_id)
-  `);
-
-  // Activity alerts table
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS activity_alerts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      guild_id TEXT NOT NULL,
-      target_user_id TEXT NOT NULL,
-      alert_user_id TEXT NOT NULL,
-      alert_type TEXT NOT NULL CHECK(alert_type IN ('gaming', 'voice', 'both')),
-      duration_minutes INTEGER NOT NULL DEFAULT 60,
-      message TEXT,
-      enabled INTEGER NOT NULL DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  database.exec(`
-    CREATE INDEX IF NOT EXISTS idx_activity_alerts_guild ON activity_alerts(guild_id)
-  `);
-
-  database.exec(`
-    CREATE INDEX IF NOT EXISTS idx_activity_alerts_target ON activity_alerts(target_user_id)
-  `);
+export async function initializeDatabase(): Promise<void> {
+  await initializeSchema();
 }
 
-export function closeDatabase(): void {
+async function initializeSchema(): Promise<void> {
+  const knexInstance = getDatabase();
+  
+  try {
+    // Create reminders table
+    const remindersTableExists = await knexInstance.schema.hasTable('reminders');
+    if (!remindersTableExists) {
+      await knexInstance.schema.createTable('reminders', (table) => {
+        table.increments('id').primary();
+        table.text('guild_id').notNullable();
+        table.text('user_id').notNullable();
+        table.text('message').notNullable();
+        table.text('cron_expression').notNullable();
+        table.text('created_by').notNullable();
+        table.timestamp('created_at').defaultTo(knexInstance.fn.now());
+      });
+
+      await knexInstance.schema.raw(`
+        CREATE INDEX idx_reminders_guild_id ON reminders(guild_id)
+      `);
+    }
+
+    // Create activity_alerts table
+    const activityAlertsTableExists = await knexInstance.schema.hasTable('activity_alerts');
+    if (!activityAlertsTableExists) {
+      await knexInstance.schema.createTable('activity_alerts', (table) => {
+        table.increments('id').primary();
+        table.text('guild_id').notNullable();
+        table.text('target_user_id').notNullable();
+        table.text('alert_user_id').notNullable();
+        table.text('alert_type').notNullable();
+        table.integer('duration_minutes').notNullable().defaultTo(60);
+        table.text('message').nullable();
+        table.boolean('enabled').notNullable().defaultTo(true);
+        table.timestamp('created_at').defaultTo(knexInstance.fn.now());
+      });
+
+      // Add CHECK constraint using raw SQL
+      await knexInstance.schema.raw(`
+        ALTER TABLE activity_alerts 
+        ADD CONSTRAINT activity_alerts_alert_type_check 
+        CHECK (alert_type IN ('gaming', 'voice', 'both'))
+      `);
+
+      await knexInstance.schema.raw(`
+        CREATE INDEX idx_activity_alerts_guild ON activity_alerts(guild_id)
+      `);
+
+      await knexInstance.schema.raw(`
+        CREATE INDEX idx_activity_alerts_target ON activity_alerts(target_user_id)
+      `);
+    }
+
+    console.log('[DB] Schéma PostgreSQL initialisé avec Knex');
+  } catch (error) {
+    console.error('[DB] Erreur lors de l\'initialisation du schéma:', error);
+    throw error;
+  }
+}
+
+export async function closeDatabase(): Promise<void> {
   if (db) {
-    db.close();
+    await db.destroy();
     db = null;
   }
 }

@@ -1,90 +1,71 @@
 import { getDatabase } from './connection';
 import type { ActivityAlert, ActivityAlertCreate } from '../types';
 
-export function createActivityAlert(data: ActivityAlertCreate): ActivityAlert {
+export async function createActivityAlert(data: ActivityAlertCreate): Promise<ActivityAlert> {
   const db = getDatabase();
   
-  const stmt = db.prepare(`
-    INSERT INTO activity_alerts (guild_id, target_user_id, alert_user_id, alert_type, duration_minutes, message)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
+  const result = await db('activity_alerts')
+    .insert({
+      guild_id: data.guild_id,
+      target_user_id: data.target_user_id,
+      alert_user_id: data.alert_user_id,
+      alert_type: data.alert_type,
+      duration_minutes: data.duration_minutes,
+      message: data.message,
+    })
+    .returning('id');
   
-  const result = stmt.run(
-    data.guild_id,
-    data.target_user_id,
-    data.alert_user_id,
-    data.alert_type,
-    data.duration_minutes,
-    data.message
-  );
-  
-  return getActivityAlertById(result.lastInsertRowid as number)!;
+  const id = result[0].id;
+  return (await getActivityAlertById(id))!;
 }
 
-export function getActivityAlertById(id: number): ActivityAlert | undefined {
+export async function getActivityAlertById(id: number): Promise<ActivityAlert | undefined> {
   const db = getDatabase();
   
-  const stmt = db.prepare('SELECT * FROM activity_alerts WHERE id = ?');
-  const row = stmt.get(id) as any;
-  
-  if (!row) return undefined;
-  
-  return {
-    ...row,
-    enabled: Boolean(row.enabled),
-  };
+  return await db('activity_alerts')
+    .where('id', id)
+    .first() as ActivityAlert | undefined;
 }
 
-export function getActivityAlertsByGuildId(guildId: string): ActivityAlert[] {
+export async function getActivityAlertsByGuildId(guildId: string): Promise<ActivityAlert[]> {
   const db = getDatabase();
   
-  const stmt = db.prepare('SELECT * FROM activity_alerts WHERE guild_id = ? ORDER BY created_at DESC');
-  const rows = stmt.all(guildId) as any[];
-  
-  return rows.map(row => ({
-    ...row,
-    enabled: Boolean(row.enabled),
-  }));
+  return await db('activity_alerts')
+    .where('guild_id', guildId)
+    .orderBy('created_at', 'desc') as ActivityAlert[];
 }
 
-export function getActivityAlertsByTargetUser(targetUserId: string): ActivityAlert[] {
+export async function getActivityAlertsByTargetUser(targetUserId: string): Promise<ActivityAlert[]> {
   const db = getDatabase();
   
-  const stmt = db.prepare('SELECT * FROM activity_alerts WHERE target_user_id = ? AND enabled = 1');
-  const rows = stmt.all(targetUserId) as any[];
-  
-  return rows.map(row => ({
-    ...row,
-    enabled: Boolean(row.enabled),
-  }));
+  return await db('activity_alerts')
+    .where('target_user_id', targetUserId)
+    .where('enabled', true) as ActivityAlert[];
 }
 
-export function getAllEnabledActivityAlerts(): ActivityAlert[] {
+export async function getAllEnabledActivityAlerts(): Promise<ActivityAlert[]> {
   const db = getDatabase();
   
-  const stmt = db.prepare('SELECT * FROM activity_alerts WHERE enabled = 1');
-  const rows = stmt.all() as any[];
-  
-  return rows.map(row => ({
-    ...row,
-    enabled: Boolean(row.enabled),
-  }));
+  return await db('activity_alerts')
+    .where('enabled', true) as ActivityAlert[];
 }
 
-export function deleteActivityAlert(id: number, guildId: string): boolean {
+export async function deleteActivityAlert(id: number, guildId: string): Promise<boolean> {
   const db = getDatabase();
   
-  const stmt = db.prepare('DELETE FROM activity_alerts WHERE id = ? AND guild_id = ?');
-  const result = stmt.run(id, guildId);
+  const deleted = await db('activity_alerts')
+    .where({ id, guild_id: guildId })
+    .delete();
   
-  return result.changes > 0;
+  return deleted > 0;
 }
 
-export function toggleActivityAlert(id: number, guildId: string, enabled: boolean): boolean {
+export async function toggleActivityAlert(id: number, guildId: string, enabled: boolean): Promise<boolean> {
   const db = getDatabase();
   
-  const stmt = db.prepare('UPDATE activity_alerts SET enabled = ? WHERE id = ? AND guild_id = ?');
-  const result = stmt.run(enabled ? 1 : 0, id, guildId);
+  const updated = await db('activity_alerts')
+    .where({ id, guild_id: guildId })
+    .update({ enabled });
   
-  return result.changes > 0;
+  return updated > 0;
 }

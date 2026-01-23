@@ -137,7 +137,7 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
   }
 
   try {
-    const alert = createActivityAlert({
+    const alert = await createActivityAlert({
       guild_id: interaction.guildId,
       target_user_id: targetUser.id,
       alert_user_id: interaction.user.id,
@@ -185,7 +185,7 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
     return;
   }
 
-  const alerts = getActivityAlertsByGuildId(interaction.guildId);
+  const alerts = await getActivityAlertsByGuildId(interaction.guildId);
 
   if (alerts.length === 0) {
     await interaction.reply({
@@ -232,7 +232,7 @@ async function handleDelete(interaction: ChatInputCommandInteraction): Promise<v
 
   const id = interaction.options.getInteger('id', true);
 
-  const alert = getActivityAlertById(id);
+  const alert = await getActivityAlertById(id);
   if (!alert || alert.guild_id !== interaction.guildId) {
     await interaction.reply({
       content: `❌ Alerte #${id} introuvable sur ce serveur.`,
@@ -241,7 +241,7 @@ async function handleDelete(interaction: ChatInputCommandInteraction): Promise<v
     return;
   }
 
-  const deleted = deleteActivityAlert(id, interaction.guildId);
+  const deleted = await deleteActivityAlert(id, interaction.guildId);
 
   if (deleted) {
     await interaction.reply({
@@ -266,7 +266,7 @@ async function handleToggle(interaction: ChatInputCommandInteraction): Promise<v
 
   const id = interaction.options.getInteger('id', true);
 
-  const alert = getActivityAlertById(id);
+  const alert = await getActivityAlertById(id);
   if (!alert || alert.guild_id !== interaction.guildId) {
     await interaction.reply({
       content: `❌ Alerte #${id} introuvable sur ce serveur.`,
@@ -276,7 +276,7 @@ async function handleToggle(interaction: ChatInputCommandInteraction): Promise<v
   }
 
   const newState = !alert.enabled;
-  const toggled = toggleActivityAlert(id, interaction.guildId, newState);
+  const toggled = await toggleActivityAlert(id, interaction.guildId, newState);
 
   if (toggled) {
     const status = newState ? '✅ activée' : '❌ désactivée';
@@ -301,7 +301,7 @@ async function handleInfo(interaction: ChatInputCommandInteraction): Promise<voi
   }
 
   const id = interaction.options.getInteger('id', true);
-  const alert = getActivityAlertById(id);
+  const alert = await getActivityAlertById(id);
 
   if (!alert || alert.guild_id !== interaction.guildId) {
     await interaction.reply({

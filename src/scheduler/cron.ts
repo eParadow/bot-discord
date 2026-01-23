@@ -34,8 +34,8 @@ export function unscheduleReminder(id: number): void {
   }
 }
 
-export function loadAllReminders(client: Client): void {
-  const reminders = getAllReminders();
+export async function loadAllReminders(client: Client): Promise<void> {
+  const reminders = await getAllReminders();
   
   console.log(`[CRON] Chargement de ${reminders.length} rappel(s)...`);
   

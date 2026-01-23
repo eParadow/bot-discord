@@ -113,7 +113,7 @@ async function checkAndSendAlerts(client: Client): Promise<void> {
     const [guildId, oderId] = key.split(':');
     
     // Get alerts for this user
-    const alerts = getActivityAlertsByTargetUser(oderId);
+    const alerts = await getActivityAlertsByTargetUser(oderId);
     
     for (const alert of alerts) {
       // Skip if alert is for a different guild

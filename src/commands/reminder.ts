@@ -122,7 +122,7 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
   }
 
   try {
-    const reminder = createReminder({
+    const reminder = await createReminder({
       guild_id: interaction.guildId,
       user_id: targetUser.id,
       message,
@@ -164,7 +164,7 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
     return;
   }
 
-  const reminders = getRemindersByGuildId(interaction.guildId);
+  const reminders = await getRemindersByGuildId(interaction.guildId);
 
   if (reminders.length === 0) {
     await interaction.reply({
@@ -205,7 +205,7 @@ async function handleDelete(interaction: ChatInputCommandInteraction): Promise<v
   const id = interaction.options.getInteger('id', true);
 
   // Verify reminder exists and belongs to this guild
-  const reminder = getReminderById(id);
+  const reminder = await getReminderById(id);
   if (!reminder || reminder.guild_id !== interaction.guildId) {
     await interaction.reply({
       content: `❌ Rappel #${id} introuvable sur ce serveur.`,
@@ -214,7 +214,7 @@ async function handleDelete(interaction: ChatInputCommandInteraction): Promise<v
     return;
   }
 
-  const deleted = deleteReminder(id, interaction.guildId);
+  const deleted = await deleteReminder(id, interaction.guildId);
 
   if (deleted) {
     // Unschedule the reminder
@@ -241,7 +241,7 @@ async function handleInfo(interaction: ChatInputCommandInteraction): Promise<voi
   }
 
   const id = interaction.options.getInteger('id', true);
-  const reminder = getReminderById(id);
+  const reminder = await getReminderById(id);
 
   if (!reminder || reminder.guild_id !== interaction.guildId) {
     await interaction.reply({

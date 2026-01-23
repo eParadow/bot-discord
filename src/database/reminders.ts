@@ -1,60 +1,62 @@
 import { getDatabase } from './connection';
 import type { Reminder, ReminderCreate } from '../types';
 
-export function createReminder(data: ReminderCreate): Reminder {
+export async function createReminder(data: ReminderCreate): Promise<Reminder> {
   const db = getDatabase();
   
-  const stmt = db.prepare(`
-    INSERT INTO reminders (guild_id, user_id, message, cron_expression, created_by)
-    VALUES (?, ?, ?, ?, ?)
-  `);
+  const result = await db('reminders')
+    .insert({
+      guild_id: data.guild_id,
+      user_id: data.user_id,
+      message: data.message,
+      cron_expression: data.cron_expression,
+      created_by: data.created_by,
+    })
+    .returning('id');
   
-  const result = stmt.run(
-    data.guild_id,
-    data.user_id,
-    data.message,
-    data.cron_expression,
-    data.created_by
-  );
-  
-  return getReminderById(result.lastInsertRowid as number)!;
+  const id = result[0].id;
+  return (await getReminderById(id))!;
 }
 
-export function getReminderById(id: number): Reminder | undefined {
+export async function getReminderById(id: number): Promise<Reminder | undefined> {
   const db = getDatabase();
   
-  const stmt = db.prepare('SELECT * FROM reminders WHERE id = ?');
-  return stmt.get(id) as Reminder | undefined;
+  return await db('reminders')
+    .where('id', id)
+    .first() as Reminder | undefined;
 }
 
-export function getRemindersByGuildId(guildId: string): Reminder[] {
+export async function getRemindersByGuildId(guildId: string): Promise<Reminder[]> {
   const db = getDatabase();
   
-  const stmt = db.prepare('SELECT * FROM reminders WHERE guild_id = ? ORDER BY created_at DESC');
-  return stmt.all(guildId) as Reminder[];
+  return await db('reminders')
+    .where('guild_id', guildId)
+    .orderBy('created_at', 'desc') as Reminder[];
 }
 
-export function getAllReminders(): Reminder[] {
+export async function getAllReminders(): Promise<Reminder[]> {
   const db = getDatabase();
   
-  const stmt = db.prepare('SELECT * FROM reminders ORDER BY id');
-  return stmt.all() as Reminder[];
+  return await db('reminders')
+    .orderBy('id') as Reminder[];
 }
 
-export function deleteReminder(id: number, guildId: string): boolean {
+export async function deleteReminder(id: number, guildId: string): Promise<boolean> {
   const db = getDatabase();
   
-  const stmt = db.prepare('DELETE FROM reminders WHERE id = ? AND guild_id = ?');
-  const result = stmt.run(id, guildId);
+  const deleted = await db('reminders')
+    .where({ id, guild_id: guildId })
+    .delete();
   
-  return result.changes > 0;
+  return deleted > 0;
 }
 
-export function deleteReminderById(id: number): boolean {
+export async function deleteReminderById(id: number): Promise<boolean> {
   const db = getDatabase();
   
-  const stmt = db.prepare('DELETE FROM reminders WHERE id = ?');
-  const result = stmt.run(id);
+  const deleted = await db('reminders')
+    .where('id', id)
+    .delete();
   
-  return result.changes > 0;
+  return deleted > 0;
 }

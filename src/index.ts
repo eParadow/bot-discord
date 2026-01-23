@@ -9,7 +9,7 @@ import {
   Routes,
 } from 'discord.js';
 import { config, validateConfig } from './config';
-import { getDatabase, closeDatabase } from './database/connection';
+import { getDatabase, closeDatabase, initializeDatabase } from './database/connection';
 import { loadAllReminders, stopAllReminders } from './scheduler/cron';
 import {
   handlePresenceUpdate,
@@ -40,6 +40,7 @@ async function main(): Promise<void> {
   // Initialize database
   console.log('📦 Initialisation de la base de données...');
   getDatabase();
+  await initializeDatabase();
 
   // Create Discord client with necessary intents for activity tracking
   const client = new Client({
@@ -68,7 +69,7 @@ async function main(): Promise<void> {
     await deployCommands();
 
     // Load all scheduled reminders
-    loadAllReminders(client);
+    await loadAllReminders(client);
     
     // Start activity tracker
     startActivityTracker(client);
@@ -116,7 +117,7 @@ async function main(): Promise<void> {
     
     stopAllReminders();
     stopActivityTracker();
-    closeDatabase();
+    await closeDatabase();
     client.destroy();
     
     console.log('👋 Bot arrêté proprement');
