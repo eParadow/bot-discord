@@ -8,7 +8,7 @@ Bot Discord en TypeScript avec deux fonctionnalités principales :
 
 ### Rappels CRON
 - Création de rappels avec des expressions CRON personnalisées
-- Envoi automatique des messages dans les channels Discord
+- Envoi automatique des messages en message privé (DM)
 - Gestion complète via des slash commands (`/rappel`)
 
 ### Alertes d'activité
@@ -84,13 +84,13 @@ npm start
 
 ### `/rappel create`
 
-Créer un nouveau rappel programmé.
+Créer un nouveau rappel programmé. Le rappel sera envoyé en message privé.
 
-| Option    | Type    | Requis | Description                                      |
-|-----------|---------|--------|--------------------------------------------------|
-| `message` | string  | Oui    | Le message à envoyer                             |
-| `cron`    | string  | Oui    | Expression CRON (ex: `0 9 * * *`)                |
-| `channel` | channel | Non    | Channel cible (défaut: channel actuel)           |
+| Option       | Type   | Requis | Description                                      |
+|--------------|--------|--------|--------------------------------------------------|
+| `message`    | string | Oui    | Le message à envoyer                             |
+| `cron`       | string | Oui    | Expression CRON (ex: `0 9 * * *`)                |
+| `utilisateur`| user   | Non    | Utilisateur qui recevra le rappel (défaut: vous) |
 
 ### `/rappel list`
 

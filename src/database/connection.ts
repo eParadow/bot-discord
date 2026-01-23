@@ -24,17 +24,45 @@ export function getDatabase(): Database.Database {
 function initializeSchema(): void {
   const database = db!;
   
+  // Check if reminders table exists and has old schema
+  let needsMigration = false;
+  try {
+    const tableInfo = database.prepare("PRAGMA table_info(reminders)").all() as any[];
+    const hasChannelId = tableInfo.some((col: any) => col.name === 'channel_id');
+    const hasUserId = tableInfo.some((col: any) => col.name === 'user_id');
+    
+    if (hasChannelId && !hasUserId) {
+      needsMigration = true;
+    }
+  } catch (e) {
+    // Table doesn't exist yet, will be created with new schema
+  }
+  
+  // Create table with new schema (or if it doesn't exist)
   database.exec(`
     CREATE TABLE IF NOT EXISTS reminders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       guild_id TEXT NOT NULL,
-      channel_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
       message TEXT NOT NULL,
       cron_expression TEXT NOT NULL,
       created_by TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Migration: Migrate from channel_id to user_id for existing databases
+  if (needsMigration) {
+    try {
+      // Add user_id column
+      database.exec(`ALTER TABLE reminders ADD COLUMN user_id TEXT`);
+      // Migrate data: use created_by as default user_id (the person who created the reminder)
+      database.exec(`UPDATE reminders SET user_id = created_by WHERE user_id IS NULL`);
+      console.log('[DB] Migration: channel_id → user_id effectuée');
+    } catch (e) {
+      console.error('[DB] Erreur lors de la migration:', e);
+    }
+  }
 
   // Create index for faster guild lookups
   database.exec(`

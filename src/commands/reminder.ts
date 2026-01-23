@@ -1,7 +1,6 @@
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
-  ChannelType,
   EmbedBuilder,
   PermissionFlagsBits,
 } from 'discord.js';
@@ -34,11 +33,10 @@ export const data = new SlashCommandBuilder()
           .setDescription('Expression CRON (ex: 0 9 * * * pour 9h chaque jour)')
           .setRequired(true)
       )
-      .addChannelOption((option) =>
+      .addUserOption((option) =>
         option
-          .setName('channel')
-          .setDescription('Channel où envoyer le rappel (défaut: channel actuel)')
-          .addChannelTypes(ChannelType.GuildText)
+          .setName('utilisateur')
+          .setDescription('Utilisateur qui recevra le rappel (défaut: vous)')
       )
   )
   .addSubcommand((subcommand) =>
@@ -92,7 +90,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 async function handleCreate(interaction: ChatInputCommandInteraction): Promise<void> {
   const message = interaction.options.getString('message', true);
   const cronExpression = interaction.options.getString('cron', true);
-  const channel = interaction.options.getChannel('channel') ?? interaction.channel;
+  const targetUser = interaction.options.getUser('utilisateur') ?? interaction.user;
 
   if (!interaction.guildId) {
     await interaction.reply({
@@ -114,9 +112,10 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
     return;
   }
 
-  if (!channel || !('id' in channel)) {
+  // Don't allow reminders for bots
+  if (targetUser.bot) {
     await interaction.reply({
-      content: '❌ Channel invalide.',
+      content: '❌ Vous ne pouvez pas créer un rappel pour un bot.',
       ephemeral: true,
     });
     return;
@@ -125,7 +124,7 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
   try {
     const reminder = createReminder({
       guild_id: interaction.guildId,
-      channel_id: channel.id,
+      user_id: targetUser.id,
       message,
       cron_expression: cronExpression,
       created_by: interaction.user.id,
@@ -139,10 +138,11 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
       .setColor(0x00ff00)
       .addFields(
         { name: 'ID', value: `${reminder.id}`, inline: true },
-        { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+        { name: 'Destinataire', value: `<@${targetUser.id}>`, inline: true },
         { name: 'CRON', value: `\`${cronExpression}\``, inline: true },
         { name: 'Message', value: message.substring(0, 1024) }
       )
+      .setDescription('Le rappel sera envoyé en message privé.')
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
@@ -183,7 +183,7 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
           const truncatedMessage = r.message.length > 50 
             ? r.message.substring(0, 50) + '...' 
             : r.message;
-          return `**#${r.id}** - \`${r.cron_expression}\` → <#${r.channel_id}>\n└ ${truncatedMessage}`;
+          return `**#${r.id}** - \`${r.cron_expression}\` → <@${r.user_id}>\n└ ${truncatedMessage}`;
         })
         .join('\n\n')
     )
@@ -255,12 +255,13 @@ async function handleInfo(interaction: ChatInputCommandInteraction): Promise<voi
     .setTitle(`📌 Rappel #${reminder.id}`)
     .setColor(0x0099ff)
     .addFields(
-      { name: 'Channel', value: `<#${reminder.channel_id}>`, inline: true },
+      { name: 'Destinataire', value: `<@${reminder.user_id}>`, inline: true },
       { name: 'CRON', value: `\`${reminder.cron_expression}\``, inline: true },
       { name: 'Créé par', value: `<@${reminder.created_by}>`, inline: true },
       { name: 'Créé le', value: new Date(reminder.created_at).toLocaleString('fr-FR'), inline: true },
       { name: 'Message', value: reminder.message.substring(0, 1024) }
     )
+    .setDescription('Le rappel sera envoyé en message privé.')
     .setTimestamp();
 
   await interaction.reply({ embeds: [embed] });

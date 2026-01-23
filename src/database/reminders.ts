@@ -5,13 +5,13 @@ export function createReminder(data: ReminderCreate): Reminder {
   const db = getDatabase();
   
   const stmt = db.prepare(`
-    INSERT INTO reminders (guild_id, channel_id, message, cron_expression, created_by)
+    INSERT INTO reminders (guild_id, user_id, message, cron_expression, created_by)
     VALUES (?, ?, ?, ?, ?)
   `);
   
   const result = stmt.run(
     data.guild_id,
-    data.channel_id,
+    data.user_id,
     data.message,
     data.cron_expression,
     data.created_by

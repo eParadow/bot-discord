@@ -1,5 +1,5 @@
 import cron, { ScheduledTask } from 'node-cron';
-import { Client, TextChannel } from 'discord.js';
+import { Client } from 'discord.js';
 import type { Reminder } from '../types';
 import { getAllReminders } from '../database/reminders';
 
@@ -12,16 +12,12 @@ export function scheduleReminder(reminder: Reminder, client: Client): void {
 
   const task = cron.schedule(reminder.cron_expression, async () => {
     try {
-      const channel = await client.channels.fetch(reminder.channel_id);
+      const user = await client.users.fetch(reminder.user_id);
       
-      if (channel && channel instanceof TextChannel) {
-        await channel.send(reminder.message);
-        console.log(`[CRON] Rappel #${reminder.id} envoyé dans #${channel.name}`);
-      } else {
-        console.error(`[CRON] Channel ${reminder.channel_id} not found or not a text channel`);
-      }
+      await user.send(reminder.message);
+      console.log(`[CRON] Rappel #${reminder.id} envoyé en MP à ${user.tag} (${user.id})`);
     } catch (error) {
-      console.error(`[CRON] Error sending reminder #${reminder.id}:`, error);
+      console.error(`[CRON] Erreur lors de l'envoi du rappel #${reminder.id}:`, error);
     }
   });
 
