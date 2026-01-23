@@ -10,8 +10,8 @@
     "build:bot": "tsc --project tsconfig.bot.json",
     "build:server": "tsc --project tsconfig.server.json",
     "build": "npm run build:bot && npm run build:server",
-    "start:bot": "node dist/bot/index.js",
-    "start:server": "node dist/server/index.js",
+    "start:bot": "node dist/bot/bot/index.js",
+    "start:server": "node dist/server/server/index.js",
     "deploy": "tsx src/bot/deploy-commands.ts"
   },
   "keywords": ["discord", "bot", "reminder", "cron"],
