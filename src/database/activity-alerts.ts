@@ -35,6 +35,15 @@ export async function getActivityAlertsByGuildId(guildId: string): Promise<Activ
     .orderBy('created_at', 'desc') as ActivityAlert[];
 }
 
+export async function getActivityAlertsByUserId(userId: string): Promise<ActivityAlert[]> {
+  const db = getDatabase();
+  
+  return await db('activity_alerts')
+    .where('alert_user_id', userId)
+    .whereNull('guild_id')
+    .orderBy('created_at', 'desc') as ActivityAlert[];
+}
+
 export async function getActivityAlertsByTargetUser(targetUserId: string): Promise<ActivityAlert[]> {
   const db = getDatabase();
   
@@ -50,22 +59,38 @@ export async function getAllEnabledActivityAlerts(): Promise<ActivityAlert[]> {
     .where('enabled', true) as ActivityAlert[];
 }
 
-export async function deleteActivityAlert(id: number, guildId: string): Promise<boolean> {
+export async function deleteActivityAlert(id: number, guildId: string | null, userId?: string): Promise<boolean> {
   const db = getDatabase();
   
-  const deleted = await db('activity_alerts')
-    .where({ id, guild_id: guildId })
-    .delete();
+  let query = db('activity_alerts').where('id', id);
+  
+  if (guildId === null && userId) {
+    // Pour les DMs, vérifier que l'alerte appartient à l'utilisateur
+    query = query.whereNull('guild_id').where('alert_user_id', userId);
+  } else if (guildId !== null) {
+    // Pour les serveurs, vérifier le guild_id
+    query = query.where('guild_id', guildId);
+  }
+  
+  const deleted = await query.delete();
   
   return deleted > 0;
 }
 
-export async function toggleActivityAlert(id: number, guildId: string, enabled: boolean): Promise<boolean> {
+export async function toggleActivityAlert(id: number, guildId: string | null, enabled: boolean, userId?: string): Promise<boolean> {
   const db = getDatabase();
   
-  const updated = await db('activity_alerts')
-    .where({ id, guild_id: guildId })
-    .update({ enabled });
+  let query = db('activity_alerts').where('id', id);
+  
+  if (guildId === null && userId) {
+    // Pour les DMs, vérifier que l'alerte appartient à l'utilisateur
+    query = query.whereNull('guild_id').where('alert_user_id', userId);
+  } else if (guildId !== null) {
+    // Pour les serveurs, vérifier le guild_id
+    query = query.where('guild_id', guildId);
+  }
+  
+  const updated = await query.update({ enabled });
   
   return updated > 0;
 }

@@ -1,6 +1,6 @@
 export interface Reminder {
   id: number;
-  guild_id: string;
+  guild_id: string | null;
   user_id: string;
   message: string;
   cron_expression: string;
@@ -9,7 +9,7 @@ export interface Reminder {
 }
 
 export interface ReminderCreate {
-  guild_id: string;
+  guild_id: string | null;
   user_id: string;
   message: string;
   cron_expression: string;
@@ -21,7 +21,7 @@ export type AlertType = 'gaming' | 'voice' | 'both';
 
 export interface ActivityAlert {
   id: number;
-  guild_id: string;
+  guild_id: string | null;
   target_user_id: string;
   alert_user_id: string;
   alert_type: AlertType;
@@ -32,7 +32,7 @@ export interface ActivityAlert {
 }
 
 export interface ActivityAlertCreate {
-  guild_id: string;
+  guild_id: string | null;
   target_user_id: string;
   alert_user_id: string;
   alert_type: AlertType;

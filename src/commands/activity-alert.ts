@@ -8,6 +8,7 @@ import {
 import {
   createActivityAlert,
   getActivityAlertsByGuildId,
+  getActivityAlertsByUserId,
   getActivityAlertById,
   deleteActivityAlert,
   toggleActivityAlert,
@@ -115,14 +116,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 }
 
 async function handleCreate(interaction: ChatInputCommandInteraction): Promise<void> {
-  if (!interaction.guildId) {
-    await interaction.reply({
-      content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
   const targetUser = interaction.options.getUser('utilisateur', true);
   const alertType = interaction.options.getString('type', true) as AlertType;
   const duration = interaction.options.getInteger('duree') ?? 60;
@@ -137,9 +130,18 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
     return;
   }
 
+  // Note: Les alertes d'activité nécessitent un serveur pour fonctionner
+  // mais on permet la création en DM pour la gestion
+  if (!interaction.guildId) {
+    await interaction.reply({
+      content: '⚠️ Note: Les alertes d\'activité nécessitent un serveur pour surveiller l\'activité. Cette alerte sera créée mais ne fonctionnera que si vous êtes dans un serveur commun avec l\'utilisateur surveillé.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
   try {
     const alert = await createActivityAlert({
-      guild_id: interaction.guildId,
+      guild_id: interaction.guildId ?? null,
       target_user_id: targetUser.id,
       alert_user_id: interaction.user.id,
       alert_type: alertType,
@@ -178,19 +180,14 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
 }
 
 async function handleList(interaction: ChatInputCommandInteraction): Promise<void> {
-  if (!interaction.guildId) {
-    await interaction.reply({
-      content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  const alerts = await getActivityAlertsByGuildId(interaction.guildId);
+  const alerts = interaction.guildId
+    ? await getActivityAlertsByGuildId(interaction.guildId)
+    : await getActivityAlertsByUserId(interaction.user.id);
 
   if (alerts.length === 0) {
+    const context = interaction.guildId ? 'sur ce serveur' : 'en privé';
     await interaction.reply({
-      content: '📭 Aucune alerte d\'activité configurée sur ce serveur.',
+      content: `📭 Aucune alerte d'activité configurée ${context}.`,
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -223,26 +220,39 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
 }
 
 async function handleDelete(interaction: ChatInputCommandInteraction): Promise<void> {
-  if (!interaction.guildId) {
-    await interaction.reply({
-      content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
   const id = interaction.options.getInteger('id', true);
 
   const alert = await getActivityAlertById(id);
-  if (!alert || alert.guild_id !== interaction.guildId) {
+  if (!alert) {
+    const context = interaction.guildId ? 'sur ce serveur' : 'en privé';
     await interaction.reply({
-      content: `❌ Alerte #${id} introuvable sur ce serveur.`,
+      content: `❌ Alerte #${id} introuvable ${context}.`,
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  const deleted = await deleteActivityAlert(id, interaction.guildId);
+  // Check ownership
+  if (interaction.guildId) {
+    if (alert.guild_id !== interaction.guildId) {
+      await interaction.reply({
+        content: `❌ Alerte #${id} introuvable sur ce serveur.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+  } else {
+    // En DM, vérifier que l'alerte appartient à l'utilisateur
+    if (alert.alert_user_id !== interaction.user.id) {
+      await interaction.reply({
+        content: `❌ Vous ne pouvez pas supprimer cette alerte.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+  }
+
+  const deleted = await deleteActivityAlert(id, interaction.guildId ?? null, interaction.user.id);
 
   if (deleted) {
     await interaction.reply({
@@ -258,27 +268,40 @@ async function handleDelete(interaction: ChatInputCommandInteraction): Promise<v
 }
 
 async function handleToggle(interaction: ChatInputCommandInteraction): Promise<void> {
-  if (!interaction.guildId) {
-    await interaction.reply({
-      content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
   const id = interaction.options.getInteger('id', true);
 
   const alert = await getActivityAlertById(id);
-  if (!alert || alert.guild_id !== interaction.guildId) {
+  if (!alert) {
+    const context = interaction.guildId ? 'sur ce serveur' : 'en privé';
     await interaction.reply({
-      content: `❌ Alerte #${id} introuvable sur ce serveur.`,
+      content: `❌ Alerte #${id} introuvable ${context}.`,
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
+  // Check ownership
+  if (interaction.guildId) {
+    if (alert.guild_id !== interaction.guildId) {
+      await interaction.reply({
+        content: `❌ Alerte #${id} introuvable sur ce serveur.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+  } else {
+    // En DM, vérifier que l'alerte appartient à l'utilisateur
+    if (alert.alert_user_id !== interaction.user.id) {
+      await interaction.reply({
+        content: `❌ Vous ne pouvez pas modifier cette alerte.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+  }
+
   const newState = !alert.enabled;
-  const toggled = await toggleActivityAlert(id, interaction.guildId, newState);
+  const toggled = await toggleActivityAlert(id, interaction.guildId ?? null, newState, interaction.user.id);
 
   if (toggled) {
     const status = newState ? '✅ activée' : '❌ désactivée';
@@ -295,23 +318,36 @@ async function handleToggle(interaction: ChatInputCommandInteraction): Promise<v
 }
 
 async function handleInfo(interaction: ChatInputCommandInteraction): Promise<void> {
-  if (!interaction.guildId) {
+  const id = interaction.options.getInteger('id', true);
+  const alert = await getActivityAlertById(id);
+
+  if (!alert) {
+    const context = interaction.guildId ? 'sur ce serveur' : 'en privé';
     await interaction.reply({
-      content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
+      content: `❌ Alerte #${id} introuvable ${context}.`,
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  const id = interaction.options.getInteger('id', true);
-  const alert = await getActivityAlertById(id);
-
-  if (!alert || alert.guild_id !== interaction.guildId) {
-    await interaction.reply({
-      content: `❌ Alerte #${id} introuvable sur ce serveur.`,
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
+  // Check ownership
+  if (interaction.guildId) {
+    if (alert.guild_id !== interaction.guildId) {
+      await interaction.reply({
+        content: `❌ Alerte #${id} introuvable sur ce serveur.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+  } else {
+    // En DM, vérifier que l'alerte appartient à l'utilisateur
+    if (alert.alert_user_id !== interaction.user.id) {
+      await interaction.reply({
+        content: `❌ Vous ne pouvez pas voir cette alerte.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
   }
 
   const typeEmoji = alert.alert_type === 'gaming' ? '🎮' : alert.alert_type === 'voice' ? '🎙️' : '🎮🎙️';

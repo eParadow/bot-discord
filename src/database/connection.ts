@@ -49,7 +49,7 @@ async function initializeSchema(): Promise<void> {
     if (!remindersTableExists) {
       await knexInstance.schema.createTable("reminders", (table) => {
         table.increments("id").primary();
-        table.text("guild_id").notNullable();
+        table.text("guild_id").nullable(); // Nullable pour permettre les DMs
         table.text("user_id").notNullable();
         table.text("message").notNullable();
         table.text("cron_expression").notNullable();
@@ -60,6 +60,33 @@ async function initializeSchema(): Promise<void> {
       await knexInstance.schema.raw(`
         CREATE INDEX idx_reminders_guild_id ON reminders(guild_id)
       `);
+      await knexInstance.schema.raw(`
+        CREATE INDEX idx_reminders_user_id ON reminders(user_id)
+      `);
+    } else {
+      // Migration: rendre guild_id nullable si la table existe déjà
+      const columnInfo = await knexInstance.schema.raw(`
+        SELECT is_nullable 
+        FROM information_schema.columns 
+        WHERE table_name = 'reminders' AND column_name = 'guild_id'
+      `);
+      if (columnInfo.rows && columnInfo.rows[0]?.is_nullable === 'NO') {
+        await knexInstance.schema.raw(`
+          ALTER TABLE reminders ALTER COLUMN guild_id DROP NOT NULL
+        `);
+        console.log("[DB] Migration: guild_id rendu nullable dans reminders");
+      }
+      // Ajouter index sur user_id s'il n'existe pas
+      const userIndexExists = await knexInstance.schema.raw(`
+        SELECT COUNT(*) as count
+        FROM pg_indexes 
+        WHERE tablename = 'reminders' AND indexname = 'idx_reminders_user_id'
+      `);
+      if (userIndexExists.rows && userIndexExists.rows[0]?.count === '0') {
+        await knexInstance.schema.raw(`
+          CREATE INDEX idx_reminders_user_id ON reminders(user_id)
+        `);
+      }
     }
 
     // Create activity_alerts table
@@ -68,7 +95,7 @@ async function initializeSchema(): Promise<void> {
     if (!activityAlertsTableExists) {
       await knexInstance.schema.createTable("activity_alerts", (table) => {
         table.increments("id").primary();
-        table.text("guild_id").notNullable();
+        table.text("guild_id").nullable(); // Nullable pour permettre les DMs
         table.text("target_user_id").notNullable();
         table.text("alert_user_id").notNullable();
         table.text("alert_type").notNullable();
@@ -92,6 +119,19 @@ async function initializeSchema(): Promise<void> {
       await knexInstance.schema.raw(`
         CREATE INDEX idx_activity_alerts_target ON activity_alerts(target_user_id)
       `);
+    } else {
+      // Migration: rendre guild_id nullable si la table existe déjà
+      const columnInfo = await knexInstance.schema.raw(`
+        SELECT is_nullable 
+        FROM information_schema.columns 
+        WHERE table_name = 'activity_alerts' AND column_name = 'guild_id'
+      `);
+      if (columnInfo.rows && columnInfo.rows[0]?.is_nullable === 'NO') {
+        await knexInstance.schema.raw(`
+          ALTER TABLE activity_alerts ALTER COLUMN guild_id DROP NOT NULL
+        `);
+        console.log("[DB] Migration: guild_id rendu nullable dans activity_alerts");
+      }
     }
 
     console.log("[DB] Schéma PostgreSQL initialisé avec Knex");

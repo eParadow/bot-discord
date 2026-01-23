@@ -9,6 +9,7 @@ import cron from 'node-cron';
 import {
   createReminder,
   getRemindersByGuildId,
+  getRemindersByUserId,
   getReminderById,
   deleteReminder,
 } from '../database/reminders';
@@ -93,14 +94,6 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
   const cronExpression = interaction.options.getString('cron', true);
   const targetUser = interaction.options.getUser('utilisateur') ?? interaction.user;
 
-  if (!interaction.guildId) {
-    await interaction.reply({
-      content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
   // Validate CRON expression
   if (!cron.validate(cronExpression)) {
     await interaction.reply({
@@ -124,7 +117,7 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
 
   try {
     const reminder = await createReminder({
-      guild_id: interaction.guildId,
+      guild_id: interaction.guildId ?? null,
       user_id: targetUser.id,
       message,
       cron_expression: cronExpression,
@@ -157,19 +150,14 @@ async function handleCreate(interaction: ChatInputCommandInteraction): Promise<v
 }
 
 async function handleList(interaction: ChatInputCommandInteraction): Promise<void> {
-  if (!interaction.guildId) {
-    await interaction.reply({
-      content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  const reminders = await getRemindersByGuildId(interaction.guildId);
+  const reminders = interaction.guildId
+    ? await getRemindersByGuildId(interaction.guildId)
+    : await getRemindersByUserId(interaction.user.id);
 
   if (reminders.length === 0) {
+    const context = interaction.guildId ? 'sur ce serveur' : 'en privé';
     await interaction.reply({
-      content: '📭 Aucun rappel configuré sur ce serveur.',
+      content: `📭 Aucun rappel configuré ${context}.`,
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -195,27 +183,40 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
 }
 
 async function handleDelete(interaction: ChatInputCommandInteraction): Promise<void> {
-  if (!interaction.guildId) {
-    await interaction.reply({
-      content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
   const id = interaction.options.getInteger('id', true);
 
-  // Verify reminder exists and belongs to this guild
+  // Verify reminder exists and belongs to this guild or user
   const reminder = await getReminderById(id);
-  if (!reminder || reminder.guild_id !== interaction.guildId) {
+  if (!reminder) {
+    const context = interaction.guildId ? 'sur ce serveur' : 'en privé';
     await interaction.reply({
-      content: `❌ Rappel #${id} introuvable sur ce serveur.`,
+      content: `❌ Rappel #${id} introuvable ${context}.`,
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  const deleted = await deleteReminder(id, interaction.guildId);
+  // Check ownership
+  if (interaction.guildId) {
+    if (reminder.guild_id !== interaction.guildId) {
+      await interaction.reply({
+        content: `❌ Rappel #${id} introuvable sur ce serveur.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+  } else {
+    // En DM, vérifier que le rappel appartient à l'utilisateur
+    if (reminder.user_id !== interaction.user.id) {
+      await interaction.reply({
+        content: `❌ Vous ne pouvez pas supprimer ce rappel.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+  }
+
+  const deleted = await deleteReminder(id, interaction.guildId ?? null, interaction.user.id);
 
   if (deleted) {
     // Unschedule the reminder
@@ -234,23 +235,36 @@ async function handleDelete(interaction: ChatInputCommandInteraction): Promise<v
 }
 
 async function handleInfo(interaction: ChatInputCommandInteraction): Promise<void> {
-  if (!interaction.guildId) {
+  const id = interaction.options.getInteger('id', true);
+  const reminder = await getReminderById(id);
+
+  if (!reminder) {
+    const context = interaction.guildId ? 'sur ce serveur' : 'en privé';
     await interaction.reply({
-      content: '❌ Cette commande ne peut être utilisée que dans un serveur.',
+      content: `❌ Rappel #${id} introuvable ${context}.`,
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  const id = interaction.options.getInteger('id', true);
-  const reminder = await getReminderById(id);
-
-  if (!reminder || reminder.guild_id !== interaction.guildId) {
-    await interaction.reply({
-      content: `❌ Rappel #${id} introuvable sur ce serveur.`,
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
+  // Check ownership
+  if (interaction.guildId) {
+    if (reminder.guild_id !== interaction.guildId) {
+      await interaction.reply({
+        content: `❌ Rappel #${id} introuvable sur ce serveur.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+  } else {
+    // En DM, vérifier que le rappel appartient à l'utilisateur
+    if (reminder.user_id !== interaction.user.id) {
+      await interaction.reply({
+        content: `❌ Vous ne pouvez pas voir ce rappel.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
   }
 
   const embed = new EmbedBuilder()

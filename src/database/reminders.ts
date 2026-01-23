@@ -34,6 +34,15 @@ export async function getRemindersByGuildId(guildId: string): Promise<Reminder[]
     .orderBy('created_at', 'desc') as Reminder[];
 }
 
+export async function getRemindersByUserId(userId: string): Promise<Reminder[]> {
+  const db = getDatabase();
+  
+  return await db('reminders')
+    .where('user_id', userId)
+    .whereNull('guild_id')
+    .orderBy('created_at', 'desc') as Reminder[];
+}
+
 export async function getAllReminders(): Promise<Reminder[]> {
   const db = getDatabase();
   
@@ -41,12 +50,20 @@ export async function getAllReminders(): Promise<Reminder[]> {
     .orderBy('id') as Reminder[];
 }
 
-export async function deleteReminder(id: number, guildId: string): Promise<boolean> {
+export async function deleteReminder(id: number, guildId: string | null, userId?: string): Promise<boolean> {
   const db = getDatabase();
   
-  const deleted = await db('reminders')
-    .where({ id, guild_id: guildId })
-    .delete();
+  let query = db('reminders').where('id', id);
+  
+  if (guildId === null && userId) {
+    // Pour les DMs, vérifier que le rappel appartient à l'utilisateur
+    query = query.whereNull('guild_id').where('user_id', userId);
+  } else if (guildId !== null) {
+    // Pour les serveurs, vérifier le guild_id
+    query = query.where('guild_id', guildId);
+  }
+  
+  const deleted = await query.delete();
   
   return deleted > 0;
 }
