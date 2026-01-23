@@ -1,0 +1,38 @@
+# ===========================================
+# Bot Discord - Node.js TypeScript
+# ===========================================
+
+# Build stage: compile TypeScript
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY tsconfig.base.json tsconfig.bot.json ./
+COPY src/bot ./src/bot
+COPY src/common ./src/common
+
+# Compile TypeScript to JavaScript
+RUN npm run build:bot
+
+# ===========================================
+# Production stage: lightweight runtime image
+# ===========================================
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+
+# Install production deps
+RUN npm ci --omit=dev \
+    && rm -rf /root/.npm /tmp/*
+
+# Copy compiled JavaScript from builder
+COPY --from=builder /app/dist/bot ./dist/bot
+
+ENV NODE_ENV=production
+
+CMD ["node", "dist/bot/bot/index.js"]

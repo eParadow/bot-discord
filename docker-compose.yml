@@ -2,7 +2,7 @@ services:
   bot:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.bot
     container_name: discord-bot
     restart: unless-stopped
     environment:
@@ -14,3 +14,42 @@ services:
       - POSTGRES_DATABASE=${POSTGRES_DATABASE:-discord_bot}
       - POSTGRES_USER=${POSTGRES_USER:-discord_bot}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    depends_on:
+      - postgres
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: discord-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-3000}:3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DATABASE=${POSTGRES_DATABASE:-discord_bot}
+      - POSTGRES_USER=${POSTGRES_USER:-discord_bot}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - API_PORT=3000
+      - JWT_SECRET=${JWT_SECRET}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: discord-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DATABASE=${POSTGRES_DATABASE:-discord_bot}
+      - POSTGRES_USER=${POSTGRES_USER:-discord_bot}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
